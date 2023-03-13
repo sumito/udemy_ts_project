@@ -7,30 +7,33 @@ enum ProjectStatus {
 
 //project type
 class Project{
-
     constructor( 
-        public id: string,
-        ,public title: string
+        public id: string
+        , public title: string
         , public descriptions: string
         , public monday: number
         , public status: ProjectStatus.Active | ProjectStatus.Finished  )
         {
-
     }
-
 }
 
 //project state management
-type Listener = (items: Project[]) => void;
+type Listener<T> = (items: T[]) => void;
 
-class ProjectState {
-    private listeners: Project[] = [];
+class State<T>{
+    protected listeners: Listener<T>[] = [];
+
+    addListener(listenerFn: Listener<T> ){
+        this.listeners.push(listenerFn);
+    }
+}
+
+class ProjectState extends State<Project> {
     private projects: Project[] = [];
     private static instance: ProjectState;
 
-
     private constructor(){
-
+        super();
     }
 
     static getInstance(){
@@ -40,11 +43,6 @@ class ProjectState {
         this.instance = new ProjectState();
         return this.instance;
     }
-
-    addListener(listenerFn: Listener ){
-        this.listeners.push(listenerFn);
-    }
-
 
     addProject( title:string , description:string , manday:number ){
         const newProject = new Project(Math.random().toString(),title,description,manday,ProjectStatus.Active);
@@ -112,27 +110,51 @@ function validate( validatableInput: Validatable ){
     return isValid;
 }
 
-
-
-//ProjectList Class
-class ProjectList {
+abstract class Component<T extends HTMLElement,U extends HTMLElement> {
     templateElement: HTMLTemplateElement;
-    hostElement: HTMLDivElement;
-    element: HTMLElement;
-    assignedProjects: Project[] = [];
+    hostElement: T;
+    element: U;
 
-    constructor( private type : ProjectStatus.Active | ProjectStatus.Finished ){
+    constructor(templateId: string, hostElementId: string,newElementId?: string,insertAtStart?: boolean ){
         this.templateElement = document.getElementById(
-        'project-list',
+            templateId,
         )! as HTMLTemplateElement;
-        this.hostElement = document.getElementById('app')! as HTMLDivElement;
+        this.hostElement = document.getElementById(hostElementId)! as T;
 
         const importedNode = document.importNode(this.templateElement.content,true);
 
-        this.element = importedNode.firstElementChild as HTMLFormElement;]
-        const typeId = type === ProjectStatus.Active ? "" : "finished";
-        this.element.id = `${typeId}-projects`;
+        this.element = importedNode.firstElementChild as U;
+        if(newElementId){
+            this.element.id = newElementId;
+        }
 
+        this.attach(insertAtStart)
+    }
+
+    abstract configure(): void;
+    abstract renderContent(): void;
+
+    private attach( insertAtBeginning: boolean | undefined ){
+    
+        this.hostElement.insertAdjacentElement( insertAtBeginning ? 'afterbegin' : 'beforeend',this.element);
+    }
+}
+
+
+//ProjectList Class
+class ProjectList extends Component<HTMLDivElement,HTMLElement> {
+    assignedProjects: Project[] = [];
+
+    constructor( private type : ProjectStatus.Active | ProjectStatus.Finished ){
+
+        const typeId = type === ProjectStatus.Active ? "" : "finished";
+        super('project-list','app',`${typeId}-projects`,false);
+
+        this.configure();
+        this.renderContent();
+    }
+
+    configure(){
         projectState.addListener( (projects: Project[]) => {
             const relevantProjects = projects.filter( prj => {
                 if(this.type === ProjectStatus.Active){
@@ -143,11 +165,15 @@ class ProjectList {
             });
             this.assignedProjects = relevantProjects;
             this.renderProjects();
-        });
-
-        this.attach();
-        this.renderContent();
+        });        
     }
+
+    renderContent(){
+        const listId = `${this.type}-projects-list`;
+        this.element.querySelector('ul')!.id = listId;
+        this.element.querySelector('h2')!.textContent = this.type === ProjectStatus.Active ? '実行中プロジェクト' : '完了プロジェクト';
+    }
+
 
     private renderProjects(){
 
@@ -161,37 +187,21 @@ class ProjectList {
             console.log(listEl);
             listEl.appendChild(listItem);
         }
-
     }
 
-    private renderContent(){
-        const listId = `${this.type}-projects-list`;
-        this.element.querySelector('ul')!.id = listId;
-        this.element.querySelector('h2')!.textContent = this.type === ProjectStatus.Active ? '実行中プロジェクト' : '完了プロジェクト';
-    }
-
-    private attach(){
-        console.log(this.element);        
-        this.hostElement.insertAdjacentElement('beforeend',this.element);
-    }
 }
 
 
 //ProjectInput
-class PropjectInput{
-    templateElement: HTMLTemplateElement;
-    hostElement: HTMLDivElement;
-    element: HTMLElement;
+class PropjectInput extends Component<HTMLDivElement,HTMLFormElement>{
+
     titleInputElement : HTMLInputElement;
     descriptionInputElement : HTMLInputElement;
     mandayInputElement : HTMLInputElement;
 
     constructor(){
-        this.templateElement = document.getElementById('project-input')! as HTMLTemplateElement;
-        this.hostElement = document.getElementById('app')! as HTMLDivElement;
-        const importedNode = document.importNode(this.templateElement.content,true);
-        this.element = importedNode.firstElementChild as HTMLFormElement;
-        this.element.id = 'user-input';
+
+        super('project-input','app','user-input',true);
 
         this.titleInputElement = this.element.querySelector('#title') as HTMLInputElement;
         this.descriptionInputElement = this.element.querySelector('#description',) as HTMLInputElement;
@@ -199,12 +209,15 @@ class PropjectInput{
 
         this.configure();
 
-        this.attach();
     }
 
-    private attach(  ){
-        console.log(this.element);        
-        this.hostElement.insertAdjacentElement('afterbegin',this.element);
+    configure(){
+        this.element.addEventListener('submit',this.submitHandler);
+        
+    }
+
+    renderContent(): void {
+        
     }
 
     @autobind
@@ -222,11 +235,6 @@ class PropjectInput{
             this.clearInput();
         }
 
-    }
-
-    private configure(){
-        this.element.addEventListener('submit',this.submitHandler);
-        
     }
 
 
