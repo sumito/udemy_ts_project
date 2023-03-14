@@ -10,9 +10,10 @@ class Project{
     constructor( 
         public id: string
         , public title: string
-        , public descriptions: string
+        , public description: string
         , public monday: number
-        , public status: ProjectStatus.Active | ProjectStatus.Finished  )
+        , public status: ProjectStatus.Active | ProjectStatus.Finished  
+        )
         {
     }
 }
@@ -58,9 +59,6 @@ class ProjectState extends State<Project> {
 }
 
 const projectState = ProjectState.getInstance();
-
-
-
 
 //auto bind decorator
 function autobind( _: any, _2:string,descriptor:PropertyDescriptor ){
@@ -115,7 +113,7 @@ abstract class Component<T extends HTMLElement,U extends HTMLElement> {
     hostElement: T;
     element: U;
 
-    constructor(templateId: string, hostElementId: string,newElementId?: string,insertAtStart?: boolean ){
+    constructor(templateId: string, hostElementId: string,insertAtStart?: boolean,newElementId?: string ){
         this.templateElement = document.getElementById(
             templateId,
         )! as HTMLTemplateElement;
@@ -148,7 +146,8 @@ class ProjectList extends Component<HTMLDivElement,HTMLElement> {
     constructor( private type : ProjectStatus.Active | ProjectStatus.Finished ){
 
         const typeId = type === ProjectStatus.Active ? "" : "finished";
-        super('project-list','app',`${typeId}-projects`,false);
+
+        super('project-list','app',false,`${typeId}-projects`);
 
         this.configure();
         this.renderContent();
@@ -182,15 +181,48 @@ class ProjectList extends Component<HTMLDivElement,HTMLElement> {
         )! as HTMLUListElement;
         listEl.innerHTML = '';
         for ( const prjItem of this.assignedProjects ){
-            const listItem = document.createElement('li');
-            listItem.textContent = prjItem.title;
-            console.log(listEl);
-            listEl.appendChild(listItem);
+            new ProjectItem(listEl.id,prjItem);
+
         }
     }
 
 }
 
+
+class ProjectItem extends Component<HTMLUListElement,HTMLLIElement> {
+    private project: Project;
+
+    constructor(hostId: string, project: Project){
+        super("single-project",hostId,false,project.id);
+        this.project = project;
+        this.configure();
+        this.renderContent();
+
+    }
+
+    get manday(){
+        if( this.project.monday < 20 ){
+            return this.project.monday.toString() + '人日';
+        } else {
+            return (this.project.monday/20).toString() + '人月';           
+        }
+    }
+
+
+    configure(): void {
+    }
+
+    renderContent(): void {
+        console.log(this.project);
+        console.log(this.element);
+        this.element.querySelector('h2')!.textContent = this.project.title;
+        this.element.querySelector('h3')!.textContent = this.manday;
+        this.element.querySelector('p')!.textContent = this.project.description;
+
+    }
+
+
+}
 
 //ProjectInput
 class PropjectInput extends Component<HTMLDivElement,HTMLFormElement>{
@@ -201,7 +233,7 @@ class PropjectInput extends Component<HTMLDivElement,HTMLFormElement>{
 
     constructor(){
 
-        super('project-input','app','user-input',true);
+        super('project-input','app',true,'user-input');
 
         this.titleInputElement = this.element.querySelector('#title') as HTMLInputElement;
         this.descriptionInputElement = this.element.querySelector('#description',) as HTMLInputElement;
